@@ -144,7 +144,7 @@ pub async fn logout(
     State(store): State<MemoryStore>,
     State(session_params): State<SessionParams>,
     TypedHeader(cookies): TypedHeader<headers::Cookie>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
     let mut headers = HeaderMap::new();
     header_set_cookie(
         &mut headers,
@@ -152,14 +152,16 @@ pub async fn logout(
         "value".to_string(),
         Utc::now() - Duration::seconds(86400),
         -86400,
-    )?;
+    )
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     delete_session_from_store(
         cookies,
         session_params.session_cookie_name.to_string(),
         &store,
     )
-    .await?;
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok((headers, Redirect::to("/")))
 }
