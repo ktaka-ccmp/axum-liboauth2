@@ -31,6 +31,10 @@ struct IndexTemplateAnon<'a> {
     message: &'a str,
 }
 
+#[derive(Template)]
+#[template(path = "popup_close.j2")]
+struct PopupCloseTemplate;
+
 pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCode, String)> {
     match user {
         Some(u) => {
@@ -56,39 +60,14 @@ pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCod
     }
 }
 
-pub(crate) async fn popup_close() -> impl IntoResponse {
-    let html = r#"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Self-closing Page</title>
-    <script>
-        window.onload = function() {
-            // Send message to parent window
-            if (window.opener) {
-                window.opener.postMessage('auth_complete', window.location.origin);
-            }
-            // Close the window after a short delay
-            setTimeout(function() {
-                window.close();
-            }, 500); // 500 milliseconds = 0.5 seconds
-        }
-    </script>
-</head>
-<body>
-    <h2>Login Successful</h2>
-    <h2>This window will close automatically with in a few seconds...</h2>
-</body>
-</html>
-"#
-    .to_string();
-
-    Response::builder()
-        .header("Content-Type", "text/html")
-        .body(html)
-        .unwrap()
+pub(crate) async fn popup_close() -> Result<Html<String>, (StatusCode, String)> {
+    let template = PopupCloseTemplate;
+    let html = Html(
+        template
+            .render()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+    );
+    Ok(html)
 }
 
 pub(crate) async fn google_auth(
