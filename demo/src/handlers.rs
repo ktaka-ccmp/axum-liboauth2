@@ -2,7 +2,7 @@ use askama::Template;
 use axum::{
     extract::{Form, Query, State},
     http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Redirect},
+    response::{Html, Redirect},
 };
 use axum_extra::{headers, TypedHeader};
 
@@ -12,12 +12,21 @@ use sha2::{Digest, Sha256};
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 
+// Helper trait for converting errors to a standard response error format
+trait IntoResponseError<T> {
+    fn into_response_error(self) -> Result<T, (StatusCode, String)>;
+}
+
+impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
+    fn into_response_error(self) -> Result<T, (StatusCode, String)> {
+        self.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+    }
+}
+
 use liboauth2::oauth2::{
     authorized, csrf_checks, delete_session_from_store, encode_state, generate_store_token,
-    header_set_cookie, validate_origin, AppError, AppState, AuthResponse, OAuth2Params,
-    SessionParams, User,
+    header_set_cookie, validate_origin, AppState, AuthResponse, OAuth2Params, SessionParams, User,
 };
-// use liboauth2::oauth2::*;
 
 #[derive(Template)]
 #[template(path = "index_user.j2")]
@@ -46,21 +55,13 @@ pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCod
         Some(u) => {
             let message = format!("Hey {}!", u.name);
             let template = IndexTemplateUser { message: &message };
-            let html = Html(
-                template
-                    .render()
-                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
-            );
+            let html = Html(template.render().into_response_error()?);
             Ok(html)
         }
         None => {
             let message = "Click the Login button below.".to_string();
             let template = IndexTemplateAnon { message: &message };
-            let html = Html(
-                template
-                    .render()
-                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
-            );
+            let html = Html(template.render().into_response_error()?);
             Ok(html)
         }
     }
@@ -68,11 +69,7 @@ pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCod
 
 pub(crate) async fn popup_close() -> Result<Html<String>, (StatusCode, String)> {
     let template = PopupCloseTemplate;
-    let html = Html(
-        template
-            .render()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
-    );
+    let html = Html(template.render().into_response_error()?);
     Ok(html)
 }
 
@@ -81,7 +78,7 @@ pub(crate) async fn google_auth(
     State(session_params): State<SessionParams>,
     State(store): State<MemoryStore>,
     headers: HeaderMap,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
     let expires_at = Utc::now() + Duration::seconds(session_params.csrf_cookie_max_age);
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
@@ -90,11 +87,15 @@ pub(crate) async fn google_auth(
         .to_string();
 
     let (csrf_token, csrf_id) =
-        generate_store_token("csrf_session", expires_at, Some(user_agent), &store).await?;
-    let (nonce_token, nonce_id) =
-        generate_store_token("nonce_session", expires_at, None, &store).await?;
-    let (pkce_token, pkce_id) =
-        generate_store_token("pkce_session", expires_at, None, &store).await?;
+        generate_store_token("csrf_session", expires_at, Some(user_agent), &store)
+            .await
+            .into_response_error()?;
+    let (nonce_token, nonce_id) = generate_store_token("nonce_session", expires_at, None, &store)
+        .await
+        .into_response_error()?;
+    let (pkce_token, pkce_id) = generate_store_token("pkce_session", expires_at, None, &store)
+        .await
+        .into_response_error()?;
 
     println!("PKCE ID: {:?}, PKCE verifier: {:?}", pkce_id, pkce_token);
 
@@ -125,18 +126,15 @@ pub(crate) async fn google_auth(
         csrf_id,
         expires_at,
         session_params.csrf_cookie_max_age,
-    )?;
+    )
+    .into_response_error()?;
 
     Ok((headers, Redirect::to(&auth_url)))
 }
 
 pub async fn protected(user: User) -> Result<Html<String>, (StatusCode, String)> {
     let template = ProtectedTemplate { user };
-    let html = Html(
-        template
-            .render()
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
-    );
+    let html = Html(template.render().into_response_error()?);
     Ok(html)
 }
 
@@ -153,7 +151,7 @@ pub async fn logout(
         Utc::now() - Duration::seconds(86400),
         -86400,
     )
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .into_response_error()?;
 
     delete_session_from_store(
         cookies,
@@ -161,7 +159,7 @@ pub async fn logout(
         &store,
     )
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .into_response_error()?;
 
     Ok((headers, Redirect::to("/")))
 }
@@ -171,18 +169,24 @@ pub async fn post_authorized(
     TypedHeader(cookies): TypedHeader<headers::Cookie>,
     headers: HeaderMap,
     Form(form): Form<AuthResponse>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
     println!(
         "Cookies: {:#?}",
         cookies.get(&state.session_params.csrf_cookie_name)
     );
 
-    validate_origin(&headers, &state.oauth2_params.auth_url).await?;
+    validate_origin(&headers, &state.oauth2_params.auth_url)
+        .await
+        .into_response_error()?;
+
     if form.state.is_empty() {
-        return Err(anyhow::anyhow!("Missing state parameter").into());
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Missing state parameter".to_string(),
+        ));
     }
 
-    authorized(&form, state).await
+    authorized(&form, state).await.into_response_error()
 }
 
 pub async fn get_authorized(
@@ -190,15 +194,21 @@ pub async fn get_authorized(
     State(state): State<AppState>,
     TypedHeader(cookies): TypedHeader<headers::Cookie>,
     headers: HeaderMap,
-) -> Result<impl IntoResponse, AppError> {
-    validate_origin(&headers, &state.oauth2_params.auth_url).await?;
-    csrf_checks(cookies.clone(), &state.store, &query, headers).await?;
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
+    validate_origin(&headers, &state.oauth2_params.auth_url)
+        .await
+        .into_response_error()?;
+    csrf_checks(cookies.clone(), &state.store, &query, headers)
+        .await
+        .into_response_error()?;
+
     delete_session_from_store(
         cookies,
         state.session_params.session_cookie_name.to_string(),
         &state.store,
     )
-    .await?;
+    .await
+    .into_response_error()?;
 
-    authorized(&query, state).await
+    authorized(&query, state).await.into_response_error()
 }
