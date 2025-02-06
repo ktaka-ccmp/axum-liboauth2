@@ -35,7 +35,7 @@ struct Jwk {
 
 #[allow(unused)]
 #[derive(Debug, Deserialize, Clone)]
-pub(crate) struct IdInfo {
+pub struct IdInfo {
     pub iss: String,
     pub sub: String,
     pub azp: String,
@@ -57,7 +57,7 @@ pub(crate) struct IdInfo {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum TokenVerificationError {
+pub enum TokenVerificationError {
     #[error("HTTP request failed: {0}")]
     HttpError(#[from] reqwest::Error),
     #[error("JSON parsing failed: {0}")]
@@ -291,7 +291,7 @@ fn verify_signature(
     }
 }
 
-pub(crate) async fn verify_idtoken(
+pub async fn verify_idtoken(
     token: String,
     audience: String,
 ) -> Result<IdInfo, TokenVerificationError> {
@@ -309,7 +309,6 @@ pub(crate) async fn verify_idtoken(
     let idinfo: IdInfo = decode_token(&token)?;
     #[cfg(debug_assertions)]
     println!("Decoded id_token payload: {:#?}", idinfo);
-
 
     let jwks_url = "https://www.googleapis.com/oauth2/v3/certs";
     let jwks = fetch_jwks(jwks_url).await?;
