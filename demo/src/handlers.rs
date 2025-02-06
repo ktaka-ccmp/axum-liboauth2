@@ -2,7 +2,7 @@ use askama::Template;
 use axum::{
     extract::{Form, Query, State},
     http::{HeaderMap, StatusCode},
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{Html, IntoResponse, Redirect},
 };
 use axum_extra::{headers, TypedHeader};
 
@@ -34,6 +34,12 @@ struct IndexTemplateAnon<'a> {
 #[derive(Template)]
 #[template(path = "popup_close.j2")]
 struct PopupCloseTemplate;
+
+#[derive(Template)]
+#[template(path = "protected.j2")]
+struct ProtectedTemplate {
+    user: User,
+}
 
 pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCode, String)> {
     match user {
@@ -124,8 +130,14 @@ pub(crate) async fn google_auth(
     Ok((headers, Redirect::to(&auth_url)))
 }
 
-pub async fn protected(user: User) -> impl IntoResponse {
-    format!("Welcome to the protected area :)\nHere's your info:\n{user:?}")
+pub async fn protected(user: User) -> Result<Html<String>, (StatusCode, String)> {
+    let template = ProtectedTemplate { user };
+    let html = Html(
+        template
+            .render()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+    );
+    Ok(html)
 }
 
 pub async fn logout(
