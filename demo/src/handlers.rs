@@ -1,7 +1,7 @@
 use askama::Template;
 use axum::{
     extract::{Form, Query, State},
-    http::HeaderMap,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
 };
 use axum_extra::{headers, TypedHeader};
@@ -31,17 +31,27 @@ struct IndexTemplateAnon<'a> {
     message: &'a str,
 }
 
-pub(crate) async fn index(user: Option<User>) -> Result<impl IntoResponse, AppError> {
+pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCode, String)> {
     match user {
         Some(u) => {
             let message = format!("Hey {}!", u.name);
             let template = IndexTemplateUser { message: &message };
-            Ok(Html(template.render().unwrap()).into_response())
+            let html = Html(
+                template
+                    .render()
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+            );
+            Ok(html)
         }
         None => {
             let message = "Click the Login button below.".to_string();
             let template = IndexTemplateAnon { message: &message };
-            Ok(Html(template.render().unwrap()).into_response())
+            let html = Html(
+                template
+                    .render()
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+            );
+            Ok(html)
         }
     }
 }
