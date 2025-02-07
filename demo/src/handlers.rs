@@ -23,8 +23,8 @@ impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
 }
 
 use liboauth2::oauth2::{
-    authorized, csrf_checks, delete_session_from_store, encode_state, generate_store_token,
-    header_set_cookie, validate_origin, AppState, AuthResponse, User,
+    create_new_session, csrf_checks, delete_session_from_store, encode_state, generate_store_token,
+    get_user_oidc_oauth2, header_set_cookie, validate_origin, AppState, AuthResponse, User,
 };
 
 #[derive(Template)]
@@ -166,6 +166,7 @@ pub async fn post_authorized(
     headers: HeaderMap,
     Form(form): Form<AuthResponse>,
 ) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
+    #[cfg(debug_assertions)]
     println!(
         "Cookies: {:#?}",
         cookies.get(&state.session_params.csrf_cookie_name)
@@ -182,7 +183,7 @@ pub async fn post_authorized(
         ));
     }
 
-    authorized(&form, state).await.into_response_error()
+    authorized(&form, state).await
 }
 
 pub async fn get_authorized(
@@ -206,5 +207,19 @@ pub async fn get_authorized(
     .await
     .into_response_error()?;
 
-    authorized(&query, state).await.into_response_error()
+    authorized(&query, state).await
+}
+
+async fn authorized(
+    auth_response: &AuthResponse,
+    state: AppState,
+) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
+    let user_data = get_user_oidc_oauth2(auth_response, &state)
+        .await
+        .into_response_error()?;
+    let headers = create_new_session(state, user_data)
+        .await
+        .into_response_error()?;
+
+    Ok((headers, Redirect::to("/popup_close")))
 }
