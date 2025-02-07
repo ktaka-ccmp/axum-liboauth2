@@ -4,9 +4,7 @@ version = { workspace = true }
 edition = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.95"
 askama = { version = "0.12.1", features = ["serde-json"] }
-async-session = "3.0.0"
 axum = "0.8"
 axum-extra = { version = "0.10", features = ["typed-header"] }
 axum-server = { version = "0.7.1", features = ["tls-rustls"] }

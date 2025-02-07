@@ -6,7 +6,6 @@ use axum::{
 };
 use axum_extra::{headers, TypedHeader};
 
-use async_session::MemoryStore;
 use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
 
@@ -25,7 +24,7 @@ impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
 
 use liboauth2::oauth2::{
     authorized, csrf_checks, delete_session_from_store, encode_state, generate_store_token,
-    header_set_cookie, validate_origin, AppState, AuthResponse, OAuth2Params, SessionParams, User,
+    header_set_cookie, validate_origin, AppState, AuthResponse, User,
 };
 
 #[derive(Template)]
@@ -74,26 +73,24 @@ pub(crate) async fn popup_close() -> Result<Html<String>, (StatusCode, String)> 
 }
 
 pub(crate) async fn google_auth(
-    State(oauth2_params): State<OAuth2Params>,
-    State(session_params): State<SessionParams>,
-    State(store): State<MemoryStore>,
+    State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
-    let expires_at = Utc::now() + Duration::seconds(session_params.csrf_cookie_max_age);
+    let expires_at = Utc::now()
+        + Duration::seconds(state.session_params.csrf_cookie_max_age.try_into().unwrap());
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
         .and_then(|h| h.to_str().ok())
         .unwrap_or("Unknown")
         .to_string();
 
-    let (csrf_token, csrf_id) =
-        generate_store_token("csrf_session", expires_at, Some(user_agent), &store)
-            .await
-            .into_response_error()?;
-    let (nonce_token, nonce_id) = generate_store_token("nonce_session", expires_at, None, &store)
+    let (csrf_token, csrf_id) = generate_store_token(expires_at, Some(user_agent), &state)
         .await
         .into_response_error()?;
-    let (pkce_token, pkce_id) = generate_store_token("pkce_session", expires_at, None, &store)
+    let (nonce_token, nonce_id) = generate_store_token(expires_at, None, &state)
+        .await
+        .into_response_error()?;
+    let (pkce_token, pkce_id) = generate_store_token(expires_at, None, &state)
         .await
         .into_response_error()?;
 
@@ -107,10 +104,10 @@ pub(crate) async fn google_auth(
     let auth_url = format!(
         "{}?{}&client_id={}&redirect_uri={}&state={}&nonce={}\
         &code_challenge={}&code_challenge_method={}",
-        oauth2_params.auth_url,
-        oauth2_params.query_string,
-        oauth2_params.client_id,
-        oauth2_params.redirect_uri,
+        state.oauth2_params.auth_url,
+        state.oauth2_params.query_string,
+        state.oauth2_params.client_id,
+        state.oauth2_params.redirect_uri,
         encoded_state,
         nonce_token,
         pkce_challenge,
@@ -122,10 +119,10 @@ pub(crate) async fn google_auth(
     let mut headers = HeaderMap::new();
     header_set_cookie(
         &mut headers,
-        session_params.csrf_cookie_name.to_string(),
+        state.session_params.csrf_cookie_name.to_string(),
         csrf_id,
         expires_at,
-        session_params.csrf_cookie_max_age,
+        state.session_params.csrf_cookie_max_age.try_into().unwrap(),
     )
     .into_response_error()?;
 
@@ -139,14 +136,13 @@ pub async fn protected(user: User) -> Result<Html<String>, (StatusCode, String)>
 }
 
 pub async fn logout(
-    State(store): State<MemoryStore>,
-    State(session_params): State<SessionParams>,
+    State(state): State<AppState>,
     TypedHeader(cookies): TypedHeader<headers::Cookie>,
 ) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
     let mut headers = HeaderMap::new();
     header_set_cookie(
         &mut headers,
-        session_params.session_cookie_name.to_string(),
+        state.session_params.session_cookie_name.to_string(),
         "value".to_string(),
         Utc::now() - Duration::seconds(86400),
         -86400,
@@ -155,8 +151,8 @@ pub async fn logout(
 
     delete_session_from_store(
         cookies,
-        session_params.session_cookie_name.to_string(),
-        &store,
+        state.session_params.session_cookie_name.to_string(),
+        &state,
     )
     .await
     .into_response_error()?;
@@ -198,14 +194,14 @@ pub async fn get_authorized(
     validate_origin(&headers, &state.oauth2_params.auth_url)
         .await
         .into_response_error()?;
-    csrf_checks(cookies.clone(), &state.store, &query, headers)
+    csrf_checks(cookies.clone(), &state, &query, headers)
         .await
         .into_response_error()?;
 
     delete_session_from_store(
         cookies,
         state.session_params.session_cookie_name.to_string(),
-        &state.store,
+        &state,
     )
     .await
     .into_response_error()?;
