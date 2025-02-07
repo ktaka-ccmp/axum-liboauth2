@@ -22,7 +22,7 @@ struct Ports {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     tracing_subscriber::registry()
         .with(
@@ -32,7 +32,12 @@ async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let app_state = app_state_init().await;
+    let oauth2_state = app_state_init().await.unwrap_or_else(|e| {
+        eprintln!("Failed to initialize AppState: {e}");
+        std::process::exit(1);
+    });
+
+    // let oauth2_state = liboauth2::AppState::new().await?;
 
     // CorsLayer is not needed unless frontend is coded in JavaScript and is hosted on a different domain.
 
@@ -56,7 +61,7 @@ async fn main() {
         .route("/logout", get(logout))
         .route("/protected", get(protected))
         // .layer(cors)
-        .with_state(app_state);
+        .with_state(oauth2_state);
 
     let ports = Ports {
         http: 3001,
@@ -68,6 +73,7 @@ async fn main() {
 
     // Wait for both servers to complete (which they never will in this case)
     tokio::try_join!(http_server, https_server).unwrap();
+    Ok(())
 }
 
 fn spawn_http_server(port: u16, app: Router) -> JoinHandle<()> {

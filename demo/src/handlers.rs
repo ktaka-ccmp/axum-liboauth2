@@ -79,7 +79,8 @@ pub(crate) async fn google_auth(
     State(store): State<MemoryStore>,
     headers: HeaderMap,
 ) -> Result<(HeaderMap, Redirect), (StatusCode, String)> {
-    let expires_at = Utc::now() + Duration::seconds(session_params.csrf_cookie_max_age);
+    let expires_at =
+        Utc::now() + Duration::seconds(session_params.csrf_cookie_max_age.try_into().unwrap());
     let user_agent = headers
         .get(axum::http::header::USER_AGENT)
         .and_then(|h| h.to_str().ok())
@@ -125,7 +126,7 @@ pub(crate) async fn google_auth(
         session_params.csrf_cookie_name.to_string(),
         csrf_id,
         expires_at,
-        session_params.csrf_cookie_max_age,
+        session_params.csrf_cookie_max_age.try_into().unwrap(),
     )
     .into_response_error()?;
 
