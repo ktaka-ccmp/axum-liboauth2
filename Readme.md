@@ -34,3 +34,18 @@ ORIGIN='https://localhost:3443'
 ```text
 cargo run
 ```
+
+## Todo
+
+- Expiration check for session and token
+- Implement PostgreSQL and SQLite storage
+- Error handling by thiserr
+- Separate libsession and liboauth2
+- Design and create user Database table
+- Remove csrf token etc after their use from token store
+- Write unit tests
+- Write integration tests
+- Write documentation
+- Publish on crates.io
+- CI/CD
+
