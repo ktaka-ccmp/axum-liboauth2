@@ -24,8 +24,9 @@ impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
 
 use liboauth2::oauth2::{
     create_new_session, csrf_checks, delete_session_from_store, encode_state, generate_store_token,
-    get_user_oidc_oauth2, header_set_cookie, validate_origin, AppState, AuthResponse, User,
+    get_user_oidc_oauth2, header_set_cookie, validate_origin, AuthResponse,
 };
+use liboauth2::types::{AppState, User};
 
 #[derive(Template)]
 #[template(path = "index_user.j2")]
@@ -94,9 +95,12 @@ pub(crate) async fn google_auth(
         .await
         .into_response_error()?;
 
+    #[cfg(debug_assertions)]
     println!("PKCE ID: {:?}, PKCE verifier: {:?}", pkce_id, pkce_token);
 
     let pkce_challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(pkce_token.as_bytes()));
+
+    #[cfg(debug_assertions)]
     println!("PKCE Challenge: {:#?}", pkce_challenge);
 
     let encoded_state = encode_state(csrf_token, nonce_id, pkce_id);
@@ -114,6 +118,7 @@ pub(crate) async fn google_auth(
         "S256"
     );
 
+    #[cfg(debug_assertions)]
     println!("Auth URL: {:#?}", auth_url);
 
     let mut headers = HeaderMap::new();
