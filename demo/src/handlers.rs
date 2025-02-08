@@ -19,9 +19,9 @@ impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
 
 use liboauth2::oauth2::{
     create_new_session, csrf_checks, delete_session_from_store, get_user_oidc_oauth2,
-    prepare_logout_response, prepare_oauth2_auth_request, validate_origin, AuthResponse,
+    prepare_logout_response, prepare_oauth2_auth_request, validate_origin,
 };
-use liboauth2::types::{AppState, User};
+use liboauth2::types::{AppState, AuthResponse, User};
 
 #[derive(Template)]
 #[template(path = "index_user.j2")]

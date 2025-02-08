@@ -14,4 +14,3 @@ edition = "2021"
 [workspace.dependencies]
 liboauth2 = { path = "./liboauth2" }
 tokio = { version = "1.43", features = ["bytes", "fs", "io-std", "macros", "parking_lot", "rt-multi-thread", "signal-hook-registry", "socket2", "sync", "time", "tracing"] }
-tracing = { version = "0.1.41", features = ["async-await"] }
