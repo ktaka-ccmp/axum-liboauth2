@@ -3,6 +3,8 @@ use axum::{
     extract::{Form, Query, State},
     http::{HeaderMap, StatusCode},
     response::{Html, Redirect},
+    routing::get,
+    Router,
 };
 use axum_extra::{headers, TypedHeader};
 
@@ -21,46 +23,20 @@ use liboauth2::oauth2::{
     create_new_session, csrf_checks, delete_session_from_store, get_user_oidc_oauth2,
     prepare_logout_response, prepare_oauth2_auth_request, validate_origin,
 };
-use liboauth2::types::{AppState, AuthResponse, User};
+use liboauth2::types::{AppState, AuthResponse};
 
-#[derive(Template)]
-#[template(path = "index_user.j2")]
-struct IndexTemplateUser<'a> {
-    message: &'a str,
-}
-
-#[derive(Template)]
-#[template(path = "index_anon.j2")]
-struct IndexTemplateAnon<'a> {
-    message: &'a str,
+pub fn router(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/google", get(google_auth))
+        .route("/authorized", get(get_authorized).post(post_authorized))
+        .route("/popup_close", get(popup_close))
+        .route("/logout", get(logout))
+        .with_state(state)
 }
 
 #[derive(Template)]
 #[template(path = "popup_close.j2")]
 struct PopupCloseTemplate;
-
-#[derive(Template)]
-#[template(path = "protected.j2")]
-struct ProtectedTemplate {
-    user: User,
-}
-
-pub(crate) async fn index(user: Option<User>) -> Result<Html<String>, (StatusCode, String)> {
-    match user {
-        Some(u) => {
-            let message = format!("Hey {}!", u.name);
-            let template = IndexTemplateUser { message: &message };
-            let html = Html(template.render().into_response_error()?);
-            Ok(html)
-        }
-        None => {
-            let message = "Click the Login button below.".to_string();
-            let template = IndexTemplateAnon { message: &message };
-            let html = Html(template.render().into_response_error()?);
-            Ok(html)
-        }
-    }
-}
 
 pub(crate) async fn popup_close() -> Result<Html<String>, (StatusCode, String)> {
     let template = PopupCloseTemplate;
@@ -77,12 +53,6 @@ pub(crate) async fn google_auth(
         .into_response_error()?;
 
     Ok((headers, Redirect::to(&auth_url)))
-}
-
-pub async fn protected(user: User) -> Result<Html<String>, (StatusCode, String)> {
-    let template = ProtectedTemplate { user };
-    let html = Html(template.render().into_response_error()?);
-    Ok(html)
 }
 
 pub async fn logout(
@@ -152,9 +122,10 @@ async fn authorized(
     let user_data = get_user_oidc_oauth2(auth_response, &state)
         .await
         .into_response_error()?;
+    let oauth2_root = state.oauth2_params.oauth2_root.to_string();
     let headers = create_new_session(state, user_data)
         .await
         .into_response_error()?;
 
-    Ok((headers, Redirect::to("/popup_close")))
+    Ok((headers, Redirect::to(&format!("{}/popup_close", &oauth2_root))))
 }

@@ -1,19 +1,13 @@
 use axum::{routing::get, Router};
-
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
 use axum_server::tls_rustls::RustlsConfig;
-use std::{net::SocketAddr, path::PathBuf};
+use std::{env, net::SocketAddr, path::PathBuf};
 use tokio::task::JoinHandle;
-
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use dotenv::dotenv;
 
 use liboauth2::oauth2::app_state_init;
 
 mod handlers;
-use handlers::{
-    get_authorized, google_auth, index, logout, popup_close, post_authorized, protected,
-};
 
 #[derive(Clone, Copy)]
 struct Ports {
@@ -32,36 +26,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let oauth2_state = app_state_init().await.unwrap_or_else(|e| {
+    let oauth2_state: AppState = app_state_init().await.unwrap_or_else(|e| {
         eprintln!("Failed to initialize AppState: {e}");
         std::process::exit(1);
     });
 
-    // let oauth2_state = liboauth2::AppState::new().await?;
-
-    // CorsLayer is not needed unless frontend is coded in JavaScript and is hosted on a different domain.
-
-    // let allowed_origin = env::var("ORIGIN").expect("Missing ORIGIN!");
-    // let allowed_origin = format!("http://localhost:3000");
-    // let allowed_origin = format!("https://accounts.google.com");
-
-    // let cors = CorsLayer::new()
-    //     .allow_origin(HeaderValue::from_str(&allowed_origin).unwrap())
-    //     .allow_methods([http::Method::GET, http::Method::POST])
-    //     .allow_credentials(true);
-
     let app = Router::new()
         .route("/", get(index))
-        .route("/auth/google", get(google_auth))
-        .route(
-            "/auth/authorized",
-            get(get_authorized).post(post_authorized),
-        )
-        .route("/popup_close", get(popup_close))
-        .route("/logout", get(logout))
         .route("/protected", get(protected))
-        // .layer(cors)
+        .nest(
+            &oauth2_state.oauth2_params.oauth2_root,
+            handlers::router(oauth2_state.clone()),
+        )
         .with_state(oauth2_state);
+    // .layer(cors)
 
     let ports = Ports {
         http: 3001,
@@ -87,6 +65,7 @@ fn spawn_http_server(port: u16, app: Router) -> JoinHandle<()> {
     })
 }
 
+// HTTPS server spawner
 fn spawn_https_server(port: u16, app: Router) -> JoinHandle<()> {
     tokio::spawn(async move {
         let config = RustlsConfig::from_pem_file(
@@ -107,4 +86,72 @@ fn spawn_https_server(port: u16, app: Router) -> JoinHandle<()> {
             .await
             .unwrap();
     })
+}
+
+use anyhow::Result;
+use askama::Template;
+use axum::{extract::State, http::StatusCode, response::Html};
+use liboauth2::types::{AppState, User};
+
+#[derive(Template)]
+#[template(path = "index_user.j2")]
+struct IndexTemplateUser<'a> {
+    message: &'a str,
+    auth_root: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "index_anon.j2")]
+struct IndexTemplateAnon<'a> {
+    message: &'a str,
+    auth_root: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "protected.j2")]
+struct ProtectedTemplate<'a> {
+    user: User,
+    auth_root: &'a str,
+}
+
+pub(crate) async fn index(
+    State(s): State<AppState>,
+    user: Option<User>,
+) -> Result<Html<String>, (StatusCode, String)> {
+    match user {
+        Some(u) => {
+            let message = format!("Hey {}!", u.name);
+            let template = IndexTemplateUser { message: &message, auth_root: &s.oauth2_params.oauth2_root };
+            let html = Html(
+                template
+                    .render()
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+            );
+            Ok(html)
+        }
+        None => {
+            let message = "Click the Login button below.".to_string();
+            let template = IndexTemplateAnon { message: &message, auth_root: &s.oauth2_params.oauth2_root };
+            let html = Html(
+                template
+                    .render()
+                    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+            );
+            Ok(html)
+        }
+    }
+}
+
+#[axum::debug_handler]
+async fn protected(
+    State(s): State<AppState>,
+    user: User,
+) -> Result<Html<String>, (StatusCode, String)> {
+    let template = ProtectedTemplate { user, auth_root: &s.oauth2_params.oauth2_root };
+    let html = Html(
+        template
+            .render()
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+    );
+    Ok(html)
 }
