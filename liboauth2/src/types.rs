@@ -19,6 +19,7 @@ pub struct OAuth2Params {
     pub auth_url: String,
     pub(crate) token_url: String,
     pub query_string: String,
+    pub oauth2_root: String,
 }
 
 #[derive(Clone)]
@@ -62,4 +63,21 @@ pub(crate) struct StoredSession {
     pub(crate) user: User,
     pub(crate) expires_at: DateTime<Utc>,
     pub(crate) ttl: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AuthResponse {
+    pub(crate) code: String,
+    pub state: String,
+    _id_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct OidcTokenResponse {
+    pub(crate) access_token: String,
+    token_type: String,
+    expires_in: u64,
+    refresh_token: Option<String>,
+    scope: String,
+    pub(crate) id_token: Option<String>,
 }

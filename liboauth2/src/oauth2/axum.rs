@@ -1,18 +1,15 @@
 use axum::{
-    extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
+    extract::{FromRequestParts, OptionalFromRequestParts},
     response::{IntoResponse, Redirect, Response},
     RequestPartsExt,
 };
 use axum_extra::{headers, TypedHeader};
-use http::{request::Parts, StatusCode};
+use http::request::Parts;
 
 use std::convert::Infallible;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
-use crate::common::AppError;
 use crate::oauth2::SESSION_COOKIE_NAME;
-use crate::types::{AppState, OAuth2Params, SessionParams, User};
+use crate::types::{AppState, User};
 
 pub struct AuthRedirect;
 
@@ -23,15 +20,14 @@ impl IntoResponse for AuthRedirect {
     }
 }
 
-impl<S> FromRequestParts<S> for User
-where
-    Arc<Mutex<Box<dyn crate::storage::CacheStoreSession>>>: FromRef<S>,
-    S: Send + Sync,
-{
+impl FromRequestParts<AppState> for User {
     type Rejection = AuthRedirect;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let store = Arc::<Mutex<Box<dyn crate::storage::CacheStoreSession>>>::from_ref(state);
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let store = &state.session_store;
         let cookies = parts
             .extract::<TypedHeader<headers::Cookie>>()
             .await
@@ -51,48 +47,16 @@ where
     }
 }
 
-impl<S> OptionalFromRequestParts<S> for User
-where
-    Arc<Mutex<Box<dyn crate::storage::CacheStoreSession>>>: FromRef<S>,
-    S: Send + Sync,
-{
+impl OptionalFromRequestParts<AppState> for User {
     type Rejection = Infallible;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &S,
+        state: &AppState,
     ) -> Result<Option<Self>, Self::Rejection> {
-        match <User as FromRequestParts<S>>::from_request_parts(parts, state).await {
+        match <User as FromRequestParts<AppState>>::from_request_parts(parts, state).await {
             Ok(res) => Ok(Some(res)),
             Err(AuthRedirect) => Ok(None),
         }
-    }
-}
-
-impl FromRef<AppState> for Arc<Mutex<Box<dyn crate::storage::CacheStoreSession>>> {
-    fn from_ref(state: &AppState) -> Self {
-        state.session_store.clone()
-    }
-}
-
-impl FromRef<AppState> for OAuth2Params {
-    fn from_ref(state: &AppState) -> Self {
-        state.oauth2_params.clone()
-    }
-}
-
-impl FromRef<AppState> for SessionParams {
-    fn from_ref(state: &AppState) -> Self {
-        state.session_params.clone()
-    }
-}
-
-// Tell axum how to convert `AppError` into a response.
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        tracing::error!("Application error: {:#}", self.0);
-
-        let message = self.0.to_string();
-        (StatusCode::INTERNAL_SERVER_ERROR, message).into_response()
     }
 }
