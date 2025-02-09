@@ -1,7 +1,7 @@
 [workspace]
 members = [
+    "demo-oauth2",
     "liboauth2",
-    "demo",
     "libsession",
 ]
 

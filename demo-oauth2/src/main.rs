@@ -1,13 +1,11 @@
 use axum::{routing::get, Router};
 use axum_server::tls_rustls::RustlsConfig;
+use dotenv::dotenv;
 use std::{env, net::SocketAddr, path::PathBuf};
 use tokio::task::JoinHandle;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use dotenv::dotenv;
 
 use liboauth2::oauth2::app_state_init;
-
-mod handlers;
 
 #[derive(Clone, Copy)]
 struct Ports {
@@ -35,8 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/", get(index))
         .route("/protected", get(protected))
         .nest(
-            &oauth2_state.oauth2_params.oauth2_root,
-            handlers::router(oauth2_state.clone()),
+            &oauth2_state.oauth2_params.oauth2_route_prefix,
+            liboauth2::axum::router(oauth2_state.clone()),
         )
         .with_state(oauth2_state);
     // .layer(cors)
@@ -97,21 +95,21 @@ use liboauth2::types::{AppState, User};
 #[template(path = "index_user.j2")]
 struct IndexTemplateUser<'a> {
     message: &'a str,
-    auth_root: &'a str,
+    auth_route_prefix: &'a str,
 }
 
 #[derive(Template)]
 #[template(path = "index_anon.j2")]
 struct IndexTemplateAnon<'a> {
     message: &'a str,
-    auth_root: &'a str,
+    auth_route_prefix: &'a str,
 }
 
 #[derive(Template)]
 #[template(path = "protected.j2")]
 struct ProtectedTemplate<'a> {
     user: User,
-    auth_root: &'a str,
+    auth_route_prefix: &'a str,
 }
 
 pub(crate) async fn index(
@@ -121,7 +119,10 @@ pub(crate) async fn index(
     match user {
         Some(u) => {
             let message = format!("Hey {}!", u.name);
-            let template = IndexTemplateUser { message: &message, auth_root: &s.oauth2_params.oauth2_root };
+            let template = IndexTemplateUser {
+                message: &message,
+                auth_route_prefix: &s.oauth2_params.oauth2_route_prefix,
+            };
             let html = Html(
                 template
                     .render()
@@ -131,7 +132,10 @@ pub(crate) async fn index(
         }
         None => {
             let message = "Click the Login button below.".to_string();
-            let template = IndexTemplateAnon { message: &message, auth_root: &s.oauth2_params.oauth2_root };
+            let template = IndexTemplateAnon {
+                message: &message,
+                auth_route_prefix: &s.oauth2_params.oauth2_route_prefix,
+            };
             let html = Html(
                 template
                     .render()
@@ -147,7 +151,10 @@ async fn protected(
     State(s): State<AppState>,
     user: User,
 ) -> Result<Html<String>, (StatusCode, String)> {
-    let template = ProtectedTemplate { user, auth_root: &s.oauth2_params.oauth2_root };
+    let template = ProtectedTemplate {
+        user,
+        auth_route_prefix: &s.oauth2_params.oauth2_route_prefix,
+    };
     let html = Html(
         template
             .render()
