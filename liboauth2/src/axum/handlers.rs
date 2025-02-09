@@ -19,15 +19,16 @@ impl<T, E: std::fmt::Display> IntoResponseError<T> for Result<T, E> {
     }
 }
 
-use liboauth2::oauth2::{
+use crate::oauth2::{
     create_new_session, csrf_checks, delete_session_from_store, get_user_oidc_oauth2,
     prepare_logout_response, prepare_oauth2_auth_request, validate_origin,
 };
-use liboauth2::types::{AppState, AuthResponse};
+use crate::types::{AppState, AuthResponse};
 
 pub fn router(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/google", get(google_auth))
+        .route("/oauth2.js", get(oauth2_js))
         .route("/authorized", get(get_authorized).post(post_authorized))
         .route("/popup_close", get(popup_close))
         .route("/logout", get(logout))
@@ -38,10 +39,32 @@ pub fn router(state: AppState) -> Router<AppState> {
 #[template(path = "popup_close.j2")]
 struct PopupCloseTemplate;
 
+#[derive(Template)]
+#[template(path = "oauth2_js.j2")]
+struct OAuth2JsTemplate<'a> {
+    auth_route_prefix: &'a str,
+}
+
 pub(crate) async fn popup_close() -> Result<Html<String>, (StatusCode, String)> {
     let template = PopupCloseTemplate;
     let html = Html(template.render().into_response_error()?);
     Ok(html)
+}
+
+pub(crate) async fn oauth2_js(
+    State(state): State<AppState>,
+) -> Result<(HeaderMap, String), (StatusCode, String)> {
+    let template = OAuth2JsTemplate {
+        auth_route_prefix: &state.oauth2_params.oauth2_route_prefix,
+    };
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        http::header::CONTENT_TYPE,
+        "application/javascript".parse().unwrap(),
+    );
+
+    Ok((headers, template.render().into_response_error()?))
 }
 
 pub(crate) async fn google_auth(
