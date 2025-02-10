@@ -4,6 +4,7 @@
   - [What is in this Repository](#what-is-in-this-repository)
   - [How to use App](#how-to-use-app)
   - [Todo](#todo)
+    - [Additional Configuration Tasks](#additional-configuration-tasks)
 
 ## What is in this Repository
 
@@ -43,10 +44,8 @@ cargo run
 - Clean up expired sessions and tokens from SQL store
 - Implement PostgreSQL and SQLite storage
 - Error handling by thiserr i.e. remove anyhow dependency in liboauth2 and libsession
-- ✅ Separate libsession and liboauth2
 - Design and create user Database table
-- ✅ Remove csrf token etc after their use from token store
-- ✅ Use STATIC parameters to simplify state management [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/settings.rs)
+axum-htmx-google-oauth/blob/master/src/settings.rs)
 - Use middleware to distinguish authenticated users [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/main.rs#L90)
 - Write unit tests
 - Write integration tests
@@ -54,4 +53,17 @@ cargo run
 - Publish on crates.io
 - CI/CD
 
+### Additional Configuration Tasks
+- Make OAuth2 userinfo endpoint configurable (currently hardcoded to Google's endpoint)
+- Add OAuth2 access type configuration (online/offline for refresh tokens)
+- Add OAuth2 prompt configuration (none/consent/select_account)
+- Make JWKS cache configurable:
+  - Cache TTL
+  - Cache size
+  - Cache invalidation strategy
+
 - ✅ Document storage singleton pattern (see [StorageSingletonPattern.md](docs/StorageSingletonPattern.md))
+- ✅ Separate libsession and liboauth2
+- ✅ Remove csrf token etc after their use from token store
+- ✅ Use STATIC parameters to simplify state management [see](https://github.com/ktaka-ccmp/
+  
