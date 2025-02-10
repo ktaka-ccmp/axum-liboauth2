@@ -2,16 +2,13 @@ use chrono::{DateTime, Duration, Utc};
 use headers::Cookie;
 use http::header::HeaderMap;
 
-// use http::HeaderValue;
-// use tower_http::cors::CorsLayer;
-
-use crate::common::{gen_random_string, header_set_cookie, AppError};
-use crate::oauth2::User;
-use crate::oauth2::{CSRF_COOKIE_NAME, SESSION_COOKIE_MAX_AGE, SESSION_COOKIE_NAME};
-use crate::types::{AppState, StoredSession};
+use crate::common::{gen_random_string, header_set_cookie};
+use crate::config::{CSRF_COOKIE_NAME, SESSION_COOKIE_MAX_AGE, SESSION_COOKIE_NAME};
+use crate::errors::AppError;
+use crate::types::{SessionState, StoredSession, User};
 
 pub async fn prepare_logout_response(
-    state: AppState,
+    state: SessionState,
     cookies: headers::Cookie,
 ) -> Result<HeaderMap, AppError> {
     let mut headers = HeaderMap::new();
@@ -31,7 +28,10 @@ pub async fn prepare_logout_response(
     Ok(headers)
 }
 
-pub async fn create_new_session(state: AppState, user_data: User) -> Result<HeaderMap, AppError> {
+pub async fn create_new_session(
+    state: SessionState,
+    user_data: User,
+) -> Result<HeaderMap, AppError> {
     let mut headers = HeaderMap::new();
     header_set_cookie(
         &mut headers,
@@ -57,7 +57,7 @@ pub async fn create_new_session(state: AppState, user_data: User) -> Result<Head
 
 async fn create_and_store_session(
     user_data: User,
-    state: &AppState,
+    state: &SessionState,
     expires_at: DateTime<Utc>,
 ) -> Result<String, AppError> {
     let session_id = gen_random_string(32)?;
@@ -76,7 +76,7 @@ async fn create_and_store_session(
 pub async fn delete_session_from_store(
     cookies: Cookie,
     cookie_name: String,
-    state: &AppState,
+    state: &SessionState,
 ) -> Result<(), AppError> {
     let mut session_store = state.session_store.lock().await;
 

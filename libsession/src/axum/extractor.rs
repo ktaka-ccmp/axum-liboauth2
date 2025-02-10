@@ -5,11 +5,10 @@ use axum::{
 };
 use axum_extra::{headers, TypedHeader};
 use http::request::Parts;
-
 use std::convert::Infallible;
 
-use crate::oauth2::SESSION_COOKIE_NAME;
-use crate::types::{AppState, User};
+use crate::config::SESSION_COOKIE_NAME;
+use crate::types::{SessionState, User};
 
 pub struct AuthRedirect;
 
@@ -20,12 +19,12 @@ impl IntoResponse for AuthRedirect {
     }
 }
 
-impl FromRequestParts<AppState> for User {
+impl FromRequestParts<SessionState> for User {
     type Rejection = AuthRedirect;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState,
+        state: &SessionState,
     ) -> Result<Self, Self::Rejection> {
         let store = &state.session_store;
         let cookies = parts
@@ -47,14 +46,14 @@ impl FromRequestParts<AppState> for User {
     }
 }
 
-impl OptionalFromRequestParts<AppState> for User {
+impl OptionalFromRequestParts<SessionState> for User {
     type Rejection = Infallible;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState,
+        state: &SessionState,
     ) -> Result<Option<Self>, Self::Rejection> {
-        match <User as FromRequestParts<AppState>>::from_request_parts(parts, state).await {
+        match <User as FromRequestParts<SessionState>>::from_request_parts(parts, state).await {
             Ok(res) => Ok(Some(res)),
             Err(AuthRedirect) => Ok(None),
         }

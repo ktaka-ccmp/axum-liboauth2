@@ -1,17 +1,16 @@
+use crate::errors::AppError;
+use crate::storage::traits::CacheStoreSession;
+use crate::types::StoredSession;
 use async_trait::async_trait;
 use std::collections::HashMap;
 
-use crate::errors::AppError;
-use crate::storage::traits::CacheStoreToken;
-use crate::types::StoredToken;
-
-pub(crate) struct InMemoryTokenStore {
-    entry: HashMap<String, StoredToken>,
+pub(crate) struct InMemorySessionStore {
+    entry: HashMap<String, StoredSession>,
 }
 
-impl InMemoryTokenStore {
+impl InMemorySessionStore {
     pub(crate) fn new() -> Self {
-        println!("Creating new in-memory token store");
+        println!("Creating new in-memory session store");
         Self {
             entry: HashMap::new(),
         }
@@ -19,17 +18,17 @@ impl InMemoryTokenStore {
 }
 
 #[async_trait]
-impl CacheStoreToken for InMemoryTokenStore {
+impl CacheStoreSession for InMemorySessionStore {
     async fn init(&self) -> Result<(), AppError> {
         Ok(()) // Nothing to initialize for in-memory store
     }
 
-    async fn put(&mut self, key: &str, value: StoredToken) -> Result<(), AppError> {
+    async fn put(&mut self, key: &str, value: StoredSession) -> Result<(), AppError> {
         self.entry.insert(key.to_owned(), value);
         Ok(())
     }
 
-    async fn get(&self, key: &str) -> Result<Option<StoredToken>, AppError> {
+    async fn get(&self, key: &str) -> Result<Option<StoredSession>, AppError> {
         Ok(self.entry.get(key).cloned())
     }
 
