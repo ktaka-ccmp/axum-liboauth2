@@ -1,7 +1,9 @@
 # axum google oauth2 example
 
-- [What is in this Repository](#what-is-in-this-repository)
-- [How to use App](#how-to-use-app)
+- [axum google oauth2 example](#axum-google-oauth2-example)
+  - [What is in this Repository](#what-is-in-this-repository)
+  - [How to use App](#how-to-use-app)
+  - [Todo](#todo)
 
 ## What is in this Repository
 
@@ -38,11 +40,14 @@ cargo run
 ## Todo
 
 - Expiration check for session and token
+- Clean up expired sessions and tokens from SQL store
 - Implement PostgreSQL and SQLite storage
 - Error handling by thiserr
-- Separate libsession and liboauth2
+- ~~Separate libsession and liboauth2~~
 - Design and create user Database table
-- Remove csrf token etc after their use from token store
+- ~~Remove csrf token etc after their use from token store~~
+- Use STATIC parameters to simplify state management [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/settings.rs)
+- Use middleware to distinguish authenticated users [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/main.rs#L90)
 - Write unit tests
 - Write integration tests
 - Write documentation
