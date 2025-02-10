@@ -14,4 +14,4 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 liboauth2 = { workspace = true }
-anyhow = "1.0.95"
+libsession = { workspace = true }
