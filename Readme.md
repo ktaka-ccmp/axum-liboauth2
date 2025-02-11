@@ -1,27 +1,86 @@
-# axum google oauth2 example
+# Axum Google OAuth2/OIDC Library
 
-- [axum google oauth2 example](#axum-google-oauth2-example)
-  - [What is in this Repository](#what-is-in-this-repository)
-  - [How to use App](#how-to-use-app)
-  - [Todo](#todo)
-    - [Additional Configuration Tasks](#additional-configuration-tasks)
+[![Crates.io](https://img.shields.io/crates/v/axum-liboauth2)](https://crates.io/crates/axum-liboauth2)
+[![Docs.rs](https://docs.rs/axum-liboauth2/badge.svg)](https://docs.rs/axum-liboauth2)
+[![License](https://img.shields.io/crates/l/axum-liboauth2)](LICENSE)
 
-## What is in this Repository
+A robust and easy-to-use library for implementing Google OAuth2/OIDC authentication in Axum web applications. This library provides a clean API for handling OAuth2 authentication flows with built-in session management and token storage.
 
-An example implementation of Google OAuth2/OIDC authentication for Axum.
-This was inspired by [example implimentation for discord](https://github.com/tokio-rs/axum/blob/main/examples/oauth/src/main.rs).
+## Features
 
-I wrote [a blog post](https://ktaka.blog.ccmp.jp/2024/12/axum-google-oauth2oidc-implementation.html) about this repository.
+- 🔒 Complete Google OAuth2/OIDC authentication flow
+- 🚀 Easy integration with Axum applications
+- 💾 Built-in token storage with Redis support
+- 🔑 Session management
+- 🎯 Type-safe user data handling
+- 📦 Example applications included
 
-https://github.com/user-attachments/assets/64d5265d-13fe-4aba-a82c-91234ab2f9b8
+## Quick Start
 
-## How to use App
+1. Add the dependency to your `Cargo.toml`:
 
-- Obtain Client ID and Client Secret from Google <https://console.cloud.google.com/apis/credentials>
-- Add "https://localhost:3443/auth/authorized" to "Authorized redirect URIs"
-  - You can replace `localhost:3443` with your host's FQDN
-  - You can also use ngrok hostname
-- Edit .env file
+```toml
+[dependencies]
+axum-liboauth2 = "0.1"
+```
+
+2. Configure OAuth2 credentials:
+   - Obtain Client ID and Client Secret from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Add your redirect URI (e.g., `https://localhost:3443/auth/authorized`) to "Authorized redirect URIs"
+   - Create a `.env` file with your credentials (see [Configuration](#configuration))
+
+3. Integrate with your Axum application:
+
+```rust
+use axum::{routing::get, Router};
+use liboauth2::OAUTH2_ROUTE_PREFIX;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize the OAuth2 library
+    liboauth2::init().await?;
+
+    let app = Router::new()
+        .route("/", get(index))
+        .route("/protected", get(protected))
+        .nest(OAUTH2_ROUTE_PREFIX.as_str(), liboauth2::router());
+
+    // Start your server...
+    Ok(())
+}
+```
+
+## Configuration
+
+Create a `.env` file with the following settings:
+
+```env
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_REDIRECT_URL=https://localhost:3443/auth/authorized
+REDIS_URL=redis://localhost:6379
+```
+
+## Examples
+
+The repository includes two example applications:
+
+- `demo-oauth2`: A complete example showing OAuth2 authentication with protected routes
+- `demo-singleton-example`: Demonstrates singleton pattern usage with the library
+
+## Documentation
+
+For more detailed information about using this library, check out:
+- [API Documentation](https://docs.rs/axum-liboauth2)
+- [Blog Post](https://ktaka.blog.ccmp.jp/2024/12/axum-google-oauth2oidc-implementation.html)
+
+## Inspiration
+
+This library was inspired by the [Discord OAuth example](https://github.com/tokio-rs/axum/blob/main/examples/oauth/src/main.rs) in the Axum repository, but extends the functionality with additional features and Google OAuth2/OIDC support.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ```text
 CLIENT_ID=$client_id
