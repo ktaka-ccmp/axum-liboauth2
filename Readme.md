@@ -123,5 +123,4 @@ axum-htmx-google-oauth/blob/master/src/settings.rs)
 - ✅ Document storage singleton pattern (see [StorageSingletonPattern.md](docs/StorageSingletonPattern.md))
 - ✅ Separate libsession and liboauth2
 - ✅ Remove csrf token etc after their use from token store
-- ✅ Use STATIC parameters to simplify state management [see](https://github.com/ktaka-ccmp/
-  
+- ✅ Use STATIC parameters to simplify state management [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/settings.rs)
