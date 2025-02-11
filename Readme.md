@@ -66,7 +66,6 @@ REDIS_URL=redis://localhost:6379
 The repository includes two example applications:
 
 - `demo-oauth2`: A complete example showing OAuth2 authentication with protected routes
-- `demo-singleton-example`: Demonstrates singleton pattern usage with the library
 
 ## Documentation
 
