@@ -103,7 +103,7 @@ cargo run
 - Implement PostgreSQL and SQLite storage
 - Error handling by thiserr i.e. remove anyhow dependency in liboauth2 and libsession
 - Design and create user Database table
-axum-htmx-google-oauth/blob/master/src/settings.rs)
+  - Fetch the user info from a user database as a library or through api request in the future.
 - Use middleware to distinguish authenticated users [see](https://github.com/ktaka-ccmp/axum-htmx-google-oauth/blob/master/src/main.rs#L90)
 - Write unit tests
 - Write integration tests
