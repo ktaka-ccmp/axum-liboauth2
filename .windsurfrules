@@ -1,6 +1,6 @@
 1. I want to publish this as a crate on crates.io
 2. I want to make the code as simple as possible yet feasible
-3. I want to make the code depnding as little as possible on other crates
+3. I want to make the code dependencies on other crates as little as possible 
 4. I hear anyhow crate is not for library crates
 5. I want to include nice tutorial and examples
 6. I want to make the liboauth2 crate usable just by nesting as a route
