@@ -1,13 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
-#[derive(Clone)]
-pub struct OAuth2State {
-    pub(crate) token_store: Arc<Mutex<Box<dyn crate::storage::CacheStoreToken>>>,
-    pub session_state: Arc<libsession::SessionState>,
-}
 
 // The user data we'll get back from Google
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,4 +44,12 @@ pub(crate) struct OidcTokenResponse {
     refresh_token: Option<String>,
     scope: String,
     pub(crate) id_token: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum TokenStoreType {
+    Memory,
+    Sqlite { url: String },
+    Postgres { url: String },
+    Redis { url: String },
 }
