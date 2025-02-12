@@ -1,13 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::sync::Mutex;
-
-#[derive(Clone)]
-pub struct SessionState {
-    pub(crate) session_store: Arc<Mutex<Box<dyn crate::storage::CacheStoreSession>>>,
-}
-
 // The user data we'll get back from Google
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -31,7 +23,7 @@ pub(crate) struct StoredSession {
 #[derive(Clone, Debug)]
 pub(crate) enum SessionStoreType {
     Memory,
-    // Sqlite { url: String },
-    // Postgres { url: String },
+    Sqlite { url: String },
+    Postgres { url: String },
     Redis { url: String },
 }
