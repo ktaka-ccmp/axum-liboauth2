@@ -3,6 +3,7 @@ members = [
     "demo-oauth2",
     "liboauth2",
     "libsession",
+    "libuserdb",
 ]
 
 resolver = "2"
@@ -14,4 +15,5 @@ edition = "2021"
 [workspace.dependencies]
 liboauth2 = { path = "./liboauth2" }
 libsession = { path = "./libsession" }
+libuserdb = { path = "./libuserdb" }
 tokio = { version = "1.43", features = ["bytes", "fs", "io-std", "macros", "parking_lot", "rt-multi-thread", "signal-hook-registry", "socket2", "sync", "time", "tracing"] }
